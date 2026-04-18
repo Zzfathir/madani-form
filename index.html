@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MADANI ALUMNI BUN - Register Form</title>
+    <link rel="preload" href="./assets/images/bg-main.webp" as="image" fetchpriority="high">
+    <link rel="preload" href="./assets/images/madani-logo.webp" as="image" fetchpriority="high">
+    <link rel="icon" href="./assets/images/madani-logo.ico" type="image/x-icon">
+    <title>MADANI ALUMNI RUN - Register Form</title>
     <style>
       @font-face {
         font-family: "switzer";
@@ -28,7 +31,7 @@
       body {
         font-family: "switzer", Tahoma, Geneva, Verdana, sans-serif;
         min-height: 100vh;
-        background-image: url("./assets/images/bg-main.png");
+        background-image: url("./assets/images/bg-main.webp");
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -383,7 +386,7 @@
     <main class="form-container">
       <form id="registrationForm">
         <div class="form-card">
-          <img class="logo" src="./assets/images/madani-logo.png" alt="Madani Logo" />
+          <img class="logo" src="./assets/images/madani-logo.webp" alt="Madani Logo" />
           <div class="form-group">
             <label for="fullName">Nama Lengkap</label>
             <input type="text" id="fullName" name="fullName" class="form-control" placeholder="A***** F*******" required />
