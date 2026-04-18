@@ -31,7 +31,11 @@
       body {
         font-family: "switzer", Tahoma, Geneva, Verdana, sans-serif;
         min-height: 100vh;
-        background-image: url("./assets/images/bg-main.webp");
+        background-image: url("./assets/images/bg-main.png");
+        background-image: image-set(
+          url("./assets/images/bg-main.webp") type("image/webp"),
+          url("./assets/images/bg-main.png") type("image/png")
+        );
         background-size: cover;
         background-position: center;
         background-repeat: no-repeat;
@@ -386,7 +390,10 @@
     <main class="form-container">
       <form id="registrationForm">
         <div class="form-card">
-          <img class="logo" src="./assets/images/madani-logo.webp" alt="Madani Logo" />
+          <picture>
+            <source srcset="./assets/images/madani-logo.webp" type="image/webp" />
+            <img class="logo" src="./assets/images/madani-logo.png" alt="Madani Logo" />
+          </picture>
           <div class="form-group">
             <label for="fullName">Nama Lengkap</label>
             <input type="text" id="fullName" name="fullName" class="form-control" placeholder="A***** F*******" required />
@@ -400,7 +407,7 @@
 
             <div class="form-group">
               <label for="whatsapp">Nomor Whatsapp</label>
-              <input type="tel" id="whatsapp" inputmode="numeric" type="number" name="whatsapp" class="form-control" placeholder="e.g. 60**********" required />
+              <input type="text" id="whatsapp" name="whatsapp" class="form-control" placeholder="e.g. 60**********" inputmode="numeric" pattern="[0-9]*" autocomplete="tel-national" maxlength="15" required />
             </div>
           </div>
         </div>
@@ -465,6 +472,7 @@
 
     <script>
       const fileInput = document.getElementById("paymentProof");
+      const whatsappInput = document.getElementById("whatsapp");
       const uploadArea = document.getElementById("uploadArea");
       const uploadText = uploadArea.querySelector(".upload-text");
       const successPopup = document.getElementById("successPopup");
@@ -485,6 +493,10 @@
         }
       });
 
+      whatsappInput.addEventListener("input", function () {
+        this.value = this.value.replace(/\D/g, "");
+      });
+
       fileInput.addEventListener("change", function () {
         if (this.files && this.files[0]) {
           uploadText.textContent = this.files[0].name;
@@ -500,8 +512,81 @@
       const form = document.getElementById("registrationForm");
       const submitButton = form.querySelector(".btn-register");
       const MAX_FILE_SIZE_MB = 5;
+      const MAX_IMAGE_DIMENSION = 1600;
+      const IMAGE_QUALITY = 0.82;
 
-      document.getElementById("registrationForm").addEventListener("submit", (e) => {
+      function getFileExtension(fileName) {
+        const parts = fileName.split(".");
+        return parts.length > 1 ? parts.pop() : "";
+      }
+
+      function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+          reader.onerror = () => reject(new Error("Could not read the file."));
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      function compressImageFile(file) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          const objectUrl = URL.createObjectURL(file);
+
+          image.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height));
+              canvas.width = Math.round(image.width * scale);
+              canvas.height = Math.round(image.height * scale);
+
+              const context = canvas.getContext("2d");
+              if (!context) {
+                URL.revokeObjectURL(objectUrl);
+                resolve(file);
+                return;
+              }
+
+              context.drawImage(image, 0, 0, canvas.width, canvas.height);
+              canvas.toBlob(
+                (blob) => {
+                  URL.revokeObjectURL(objectUrl);
+                  if (!blob) {
+                    resolve(file);
+                    return;
+                  }
+
+                  const baseName = file.name.replace(/\.[^.]+$/, "");
+                  resolve(new File([blob], `${baseName}.webp`, { type: "image/webp" }));
+                },
+                "image/webp",
+                IMAGE_QUALITY,
+              );
+            } catch (error) {
+              URL.revokeObjectURL(objectUrl);
+              resolve(file);
+            }
+          };
+
+          image.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("Could not process the image."));
+          };
+
+          image.src = objectUrl;
+        });
+      }
+
+      async function prepareUploadFile(file) {
+        if (file.type.startsWith("image/")) {
+          return compressImageFile(file);
+        }
+
+        return file;
+      }
+
+      document.getElementById("registrationForm").addEventListener("submit", async (e) => {
         e.preventDefault();
 
         const fileInput = document.getElementById("paymentProof");
@@ -517,53 +602,42 @@
           return;
         }
 
-        const reader = new FileReader();
-
         submitButton.disabled = true;
         submitButton.textContent = "Sending...";
 
-        reader.onload = async function () {
+        try {
+          const uploadFile = await prepareUploadFile(file);
           const formData = new FormData(form);
           const data = Object.fromEntries(formData.entries());
 
-          const dataUrl = typeof reader.result === "string" ? reader.result : "";
+          const dataUrl = await blobToDataUrl(uploadFile);
           const base64Content = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
 
           data.paymentProof = base64Content;
-          data.paymentProofName = file.name;
-          data.paymentProofMimeType = file.type || "application/octet-stream";
+          data.paymentProofName = uploadFile.name || file.name;
+          data.paymentProofMimeType = uploadFile.type || file.type || "application/octet-stream";
 
-          try {
-            const response = await fetch(scriptURL, {
-              method: "POST",
-              body: new URLSearchParams(data),
-            });
+          const response = await fetch(scriptURL, {
+            method: "POST",
+            body: new URLSearchParams(data),
+          });
 
-            const responseText = await response.text();
-            if (!response.ok) {
-              throw new Error(responseText || "Upload failed");
-            }
-
-            showSuccessPopup();
-            form.reset();
-            uploadText.textContent = "Upload Here";
-            uploadArea.classList.remove("has-file");
-          } catch (error) {
-            console.error(error);
-            alert("Failed to submit. Please check file size/type and script access.");
-          } finally {
-            submitButton.disabled = false;
-            submitButton.textContent = "Register";
+          const responseText = await response.text();
+          if (!response.ok) {
+            throw new Error(responseText || "Upload failed");
           }
-        };
 
-        reader.onerror = function () {
+          showSuccessPopup();
+          form.reset();
+          uploadText.textContent = "Upload Here";
+          uploadArea.classList.remove("has-file");
+        } catch (error) {
+          console.error(error);
+          alert("Failed to submit. Please check file size/type and script access.");
+        } finally {
           submitButton.disabled = false;
           submitButton.textContent = "Register";
-          alert("Could not read the uploaded file.");
-        };
-
-        reader.readAsDataURL(file);
+        }
       });
     </script>
   </body>
