@@ -152,6 +152,18 @@
         margin-bottom: 12px;
       }
 
+      .size-banner {
+        margin: 8px 0 18px;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+
+      .size-banner img {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
       .package-options {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -495,6 +507,11 @@
         .section-title {
           font-size: 0.95rem;
           margin-bottom: 10px;
+        }
+
+        .size-banner {
+          margin: 6px 0 14px;
+          border-radius: 10px;
         }
 
         .package-option {
@@ -860,6 +877,10 @@
             </div>
           </div>
 
+          <div class="size-banner" id="sizeBanner">
+            <img src="./assets/images/size-banner.png" alt="Jersey size chart" />
+          </div>
+
           <div class="form-group is-hidden" id="shirtSizeGroup">
             <label for="shirtSize">Pilih Ukuran</label>
             <select id="shirtSize" name="shirtSize" class="form-control">
@@ -870,7 +891,13 @@
               <option value="L">L</option>
               <option value="XL">XL</option>
               <option value="XXL">XXL</option>
+              <option value="Others">Others</option>
             </select>
+          </div>
+
+          <div class="form-group is-hidden" id="shirtSizeOtherGroup">
+            <label for="shirtSizeOther">Others</label>
+            <input type="text" id="shirtSizeOther" name="shirtSizeOther" class="form-control" placeholder="Type your size (e.g. 3XL, 4XL, etc)" />
           </div>
 
           <div class="payment-block">
@@ -935,6 +962,9 @@
       const closeSuccessPopupButton = document.getElementById("closeSuccessPopup");
       const shirtSizeGroup = document.getElementById("shirtSizeGroup");
       const shirtSizeSelect = document.getElementById("shirtSize");
+      const shirtSizeOtherGroup = document.getElementById("shirtSizeOtherGroup");
+      const shirtSizeOtherInput = document.getElementById("shirtSizeOther");
+      const sizeBanner = document.getElementById("sizeBanner");
       const packageTypeInputs = document.querySelectorAll('input[name="packageType"]');
 
       function showPopup(title, message) {
@@ -968,18 +998,40 @@
 
         if (requiresSize) {
           shirtSizeGroup.classList.remove("is-hidden");
+          sizeBanner.classList.remove("is-hidden");
           shirtSizeSelect.required = true;
+          updateOtherSizeVisibility();
           return;
         }
 
         shirtSizeGroup.classList.add("is-hidden");
+        sizeBanner.classList.add("is-hidden");
         shirtSizeSelect.required = false;
         shirtSizeSelect.value = "";
+        shirtSizeOtherGroup.classList.add("is-hidden");
+        shirtSizeOtherInput.required = false;
+        shirtSizeOtherInput.value = "";
+      }
+
+      function updateOtherSizeVisibility() {
+        const showOthers = !shirtSizeGroup.classList.contains("is-hidden") && shirtSizeSelect.value === "Others";
+
+        if (showOthers) {
+          shirtSizeOtherGroup.classList.remove("is-hidden");
+          shirtSizeOtherInput.required = true;
+          return;
+        }
+
+        shirtSizeOtherGroup.classList.add("is-hidden");
+        shirtSizeOtherInput.required = false;
+        shirtSizeOtherInput.value = "";
       }
 
       packageTypeInputs.forEach((input) => {
         input.addEventListener("change", updateShirtSizeVisibility);
       });
+
+      shirtSizeSelect.addEventListener("change", updateOtherSizeVisibility);
 
       updateShirtSizeVisibility();
 
@@ -1140,6 +1192,19 @@
           const formData = new FormData(form);
           const data = Object.fromEntries(formData.entries());
 
+          if (data.shirtSize === "Others") {
+            const customShirtSize = (data.shirtSizeOther || "").trim();
+            if (!customShirtSize) {
+              alert("Please fill in your custom shirt size.");
+              return;
+            }
+            data.shirtSize = customShirtSize;
+          }
+
+          if (data.shirtSize !== "Others") {
+            delete data.shirtSizeOther;
+          }
+
           data.paymentProof = preparedUpload.base64Content;
           data.paymentProofName = uploadFile.name || file.name;
           data.paymentProofMimeType = uploadFile.type || file.type || "application/octet-stream";
@@ -1187,6 +1252,8 @@
           preparedUploadCache = null;
           uploadText.textContent = "Upload Here";
           uploadArea.classList.remove("has-file");
+          updateShirtSizeVisibility();
+          updateOtherSizeVisibility();
         } catch (error) {
           console.error(error);
           const message = String(error && error.message ? error.message : error);
