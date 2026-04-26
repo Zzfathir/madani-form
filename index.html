@@ -119,6 +119,27 @@
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
       }
 
+      .registration-status {
+        margin: 0 auto 18px;
+        width: 100%;
+        max-width: 1000px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 1rem;
+        border-radius: 12px;
+        padding: 14px 16px;
+      }
+
+      .registration-status.closed {
+        color: #8a1c1c;
+        background: #ffe6e6;
+        border: 2px solid #e7a7a7;
+      }
+
+      .form-closed .form-card {
+        opacity: 0.82;
+      }
+
       .form-group {
         margin-bottom: 20px;
       }
@@ -477,6 +498,12 @@
           max-width: 200px;
         }
 
+        .registration-status {
+          font-size: 0.92rem;
+          padding: 12px;
+          margin-bottom: 14px;
+        }
+
         .header {
           margin-top: 300px;
           margin-bottom: 400px;
@@ -763,6 +790,8 @@
   <body>
     <main class="form-container">
       <form id="registrationForm">
+        <div class="registration-status closed" id="registrationStatus">Closed Registration</div>
+
         <div class="form-card">
           <picture>
             <source srcset="./assets/images/madani-logo.webp" type="image/webp" />
@@ -1046,6 +1075,7 @@
       });
 
       const scriptURL = "https://script.google.com/macros/s/AKfycbzGT5oOcvrmT9fFaN-aS__zrkiLb5xsWEPdBgzSmtEjbovM74ULB8QWSA9dtbGI9Aub/exec";
+      const REGISTRATION_OPEN = false;
 
       const form = document.getElementById("registrationForm");
       const submitButton = form.querySelector(".btn-register");
@@ -1054,6 +1084,22 @@
       const IMAGE_QUALITY = 0.78;
 
       let preparedUploadCache = null;
+
+      function applyRegistrationState() {
+        if (REGISTRATION_OPEN) {
+          return;
+        }
+
+        form.classList.add("form-closed");
+        const controls = form.querySelectorAll("input, select, textarea, button");
+        controls.forEach((control) => {
+          control.disabled = true;
+        });
+
+        submitButton.textContent = "Closed Registration";
+      }
+
+      applyRegistrationState();
 
       function getFileKey(file) {
         return `${file.name}:${file.size}:${file.lastModified}:${file.type}`;
@@ -1163,6 +1209,11 @@
 
       document.getElementById("registrationForm").addEventListener("submit", async (e) => {
         e.preventDefault();
+
+        if (!REGISTRATION_OPEN) {
+          showPopup("Closed Registration", "Registration is currently closed.");
+          return;
+        }
 
         const fileInput = document.getElementById("paymentProof");
         const file = fileInput.files[0];
